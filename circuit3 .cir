@@ -1,0 +1,9 @@
+Inputs:
+A
+B
+Components:
+G0,OR,W1,A,B
+G1,NAND,W2,W1,B
+G2,NOT,W3,W1
+G3,NAND,W4,W3,W2
+

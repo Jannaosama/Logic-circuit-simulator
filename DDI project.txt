@@ -1,0 +1,61 @@
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <string>
+
+using namespace std;
+
+vector<string> readFile(const string& filename) { //This function reads the data from a text file and stores it in a vector
+    ifstream file(filename);
+    vector<string> VectorData;
+    string line;
+
+    while (getline(file, line)) { //this loop iterates over each line to read data from the text file
+        data.push_back(line);
+    }
+
+    return VectorData;
+}
+
+int main() {
+    vector<vector<string>> CircuitFiles;
+    vector<vector<string>> StimuliFiles;
+    vector<string> libFile;
+
+    // Read from circuit files
+    for (int i = 1; i <= 5; ++i) {
+        string CircuitFilename = "circuit" + to_string(i) + ".txt";
+        vector<string> circuitData = readFile(circuitFilename);
+        circuitFiles.push_back(circuitData);
+    }
+
+    // Read from stimuli files
+    for (int i = 1; i <= 5; ++i) {
+        string stimuliFilename = "stimuli" + to_string(i) + ".txt";
+        vector<string> stimuliData = readFile(stimuliFilename);
+        stimuliFiles.push_back(stimuliData);
+    }
+
+    // Read from library file
+    libFile = readFile("lib.lib");
+
+    // Print the contents of the first circuit file
+  cout << "Contents of circuit1.txt:" << endl;
+    for (const auto& line : CircuitFiles[0]) {
+        cout << line << endl;
+    }
+
+    // Print the contents of the first stimuli file
+    cout << "Contents of stimuli1.txt:" << endl;
+    for (const auto& line : StimuliFiles[0]) {
+        cout << line << endl;
+    }
+
+    // Exam Print the contents of the library file
+    cout << "Contents of lib.lib:" << endl;
+    for (const auto& line : libFile) {
+        cout << line << endl;
+    }
+
+    return 0;
+}

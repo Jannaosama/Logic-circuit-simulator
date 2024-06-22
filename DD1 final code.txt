@@ -1,0 +1,264 @@
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <sstream>
+#include <map>
+#include <algorithm>
+using namespace std ;
+
+
+map<string, int > wires;
+    vector<vector<string>> read_stimuli_file(const string& filename) {
+    vector<vector<string>> stimuli_data;
+        ifstream file(filename);        // Read the file   // Vector of vectors of strings to store stimuli data (stimuli file)
+                                                              //the stimuli file is a text file that contains the stimuli data for each wire.
+                                                              // Each line of the file contains the name of the wire and the stimuli value for that wire.
+    if (!file.is_open()) { // Check if the file is not open
+        cerr << "Error opening file: " << filename << endl; // Print error message to standard error stream
+        return stimuli_data;
+    }
+
+    string line; // String to store each line of the file
+    while (getline(file, line)) { // Loop through each line of the file
+        vector<string> tokens; // Vector to store tokens of the line
+        string token; // String to store each token
+        size_t pos; // Position variable for finding comma separator
+        while ((pos = line.find(',')) != string::npos) { // Loop until no more comma found
+            token = line.substr(0, pos); // Extract token from the beginning of the line to the comma
+            tokens.push_back(token); // Add token to the vector of tokens
+            line.erase(0, pos + 1); // Erase the token and comma from the line
+        }
+        tokens.push_back(line); // Push the remaining part of the line (last token)
+        stimuli_data.push_back(tokens); // Add vector of tokens to the vector of stimuli data
+    }
+
+    file.close(); // Close the file
+    return stimuli_data; // Return the vector of vectors of strings containing stimuli data
+}
+
+vector<vector<string>> readLibFile(const string& filename) { //Reads the library file and return a vector of vector of strings
+    vector<vector<string>> result;
+    ifstream file("lib.lib");//Open the file
+    string line;
+
+    while (getline(file, line)) { //Loop iterates over each line in the file and stores it in the variable line
+        stringstream ss(line); //each line is treated as a string
+        vector<string> vec;
+        string temp_string;
+        while (getline(ss, temp_string, ',')) { //inner loop iterates over each line to extract characters until the comma or the  end of the line
+            vec.push_back(temp_string);
+        }
+
+        result.push_back(vec);
+    }
+
+    return result;
+}
+int convert_to_int (string const& x){ //Function to extract the integers from the string
+    string clean = " ";
+    for (auto i :x)  if ( isdigit(i))clean.push_back(i); //if it is already a digit , it pushes it back to the clean string
+    return stoi(clean);//return the whole string as integers
+}
+
+vector<vector<string>> extractGateDefinitions(const string& filename) { //function to read each gate (circuit files)
+    vector<vector<string>> gateDefinitions;
+    ifstream file(filename);
+    string line;
+    bool gates = false;
+    while (getline(file, line)) {
+        stringstream ss(line);
+        vector<string> tokens;
+        string token;
+        if (line=="Components:") { // it counts the number of lines after components to count the number of gates in each circuit
+            gates = true;
+            continue;
+        }
+        if (!gates) { // if there are no more gates or and it is not the input file , then they are the wires and they are assigned by defualt to zero
+            if (line !="Inputs:") wires [line] = 0;
+        }
+        else {
+            int idx = 0;
+            while (getline(ss, token, ',')) {
+                tokens.push_back(token); // put all the tokens in a vector
+                if (idx>=2) wires[token] = 0;//determines the wires
+                idx++; //works as a counter
+            }
+        }
+        if (!tokens.empty())gateDefinitions.push_back(tokens);
+    }
+    return gateDefinitions;
+}
+
+int main() {
+
+    vector<vector<string>> GateDef = readLibFile("lib.lib");  // reads from the library file and stores in 2D vector called GateDef
+    vector <vector <string>> Circut = extractGateDefinitions("circuit1.cir"); // read from the circuit file, takes the gate name, examine which gate it is ( 2d vector )
+    vector <vector <string>> events = read_stimuli_file("stimuli1.stim"); // reads the events from the stimlui.stim file
+    map <string, pair<int,int>> update_values; // stores the time the gate should be updated and the value to be updated
+    int time=0;
+    vector <string> updated_wires;
+
+    while (time < 10000){
+//         checking new events
+//         updating values of wires
+        for (auto event : events ){ //iterates over each event in
+            // the events vector
+            int time_stamp = convert_to_int(event[0]);    // this loop is to get the time stamp of each wire
+            string wire_name = event[1]; // this loop is to get the name of the wire
+            int wire_value = convert_to_int(event[2]); // this loop is to get the value of the wire
+
+            if (time == time_stamp){
+                wires[wire_name]= wire_value; // assigns the wire
+                updated_wires.push_back(wire_name); //To keep track of which wires are updated at the current time
+                cout << time << " " << wire_name << "  " << wire_value << "\n";
+            }
+        }
+        //
+        for (auto i : update_values) {
+            if (i.second.first == time) {           // second (int, int), time of updating the gate  ,first (string), type of the gate
+                wires[i.first] = i.second.second;
+                cout << i.second.first << "  " << i.first << "  " << i.second.second << "\n";
+                updated_wires.push_back(i.first);
+            }
+        }
+            for (int k = 0; k< Circut.size();k++){
+
+                if (Circut[k][1] == "AND")  {
+                bool skip = true; // Initialize skip flag to true
+
+                // Calculate the output of the AND gate
+                int temp = 1; // Initialize temp to 1
+                for (int i = 3; i < Circut[k].size(); i++) {
+                    temp = temp & wires[Circut[k][i]]; // Perform bitwise AND operation with input wire values
+                    auto lookup = find(updated_wires.begin(), updated_wires.end(), Circut[k][i]);
+
+
+                    if (lookup != updated_wires.end()) // Check if any input wire is updated
+                        skip = false; // Set skip to false if an input wire is updated
+                }
+
+                // Update the output wire value only if there are new events
+                int delay = 0;
+                if (!skip) {
+                    for (int g = 0; g< GateDef.size() ; g++)
+                    {
+                        string gateType = GateDef[g][0];
+                        if (gateType == "AND") delay = convert_to_int(GateDef[g][3]);
+                    }
+                     update_values[Circut[k][2]] = {(time + delay), temp};
+                }
+
+            }
+
+            if (Circut[k][1] == "OR"){
+                bool skip = 1;
+                int temp = 0;
+                for (int i=3;i<Circut[k].size();i++){
+                    temp = temp | wires[Circut[k][i]];
+                    auto lookup = find(updated_wires.begin(), updated_wires.end(), Circut[k][i]);
+                    if (lookup!=updated_wires.end()) skip = 0;
+                }
+                // update the value of the wire after some time
+                int delay = 0;
+                if (skip==0  ) {
+                    for (int g = 0; g< GateDef.size() ; g++) {
+                        string gateType = GateDef[g][0];
+                        if (gateType == "OR") delay = convert_to_int(GateDef[g][3]);
+                    }
+
+                    update_values[Circut[k][2]] = {time + delay, temp};
+
+                }
+            }
+            if (Circut[k][1] =="NOR") {
+                bool skip = 1; // Initialize skip flag to true
+                int temp =0;
+                for (int i = 3; i < Circut[k].size(); i++) {
+                    temp = (temp |wires[Circut[k][i]]); // Perform bitwise AND operation with the negation of input wire values
+                    auto lookup = find(updated_wires.begin(), updated_wires.end(), Circut[k][i]);
+                    if (lookup != updated_wires.end()) // Check if any input wire is updated
+                        skip = 0; // Set skip to false if an input wire is updated
+                }
+                // Update the output wire value if there are new events
+                if (!skip  ) {
+                    // Schedule an update for the output wire of the NOR gate
+                    float delay = 0;
+                    for (int g = 0; g< GateDef.size() ; g++) {
+                        string gateType = GateDef[g][0];
+                        if (gateType == "NOR") delay = convert_to_int(GateDef[g][3]);
+                    }
+                    update_values[Circut[k][2]] = {time + delay, temp};
+                }
+            }
+            if (Circut[k][1] == "NAND") {
+                bool skip = 1;
+                int temp = 1;
+                // Check if any input wire of the NAND gate has been updated
+                for (int i = 3; i < Circut[k].size(); i++)
+                {
+                    temp = temp & wires[Circut[k][i]];
+                    auto lookup = find(updated_wires.begin(), updated_wires.end(), Circut[k][i]);
+                    if (lookup != updated_wires.end()) {
+                        skip = 0; // Set skip to true if any input wire is updated
+                    }
+                }
+
+                if (!skip  )
+                {
+                    float delay = 0;
+                    for (int g = 0; g< GateDef.size() ; g++) {
+                        string gateType = GateDef[g][0];
+                        if (gateType == "NAND") delay = convert_to_int(GateDef[g][3]);
+                    }
+                    update_values[Circut[k][2]] = {time + delay, !temp};
+                    // Calculate the output of the NAND gate
+                }
+            }
+            if (Circut[k][1]=="NOT") {
+                bool skip = 1;
+                int temp = (wires[Circut[k][3]])?0:1;
+
+                for (string wire_name : updated_wires) if (wire_name==Circut[k][3]) skip = 0;
+                int delay  =0;
+                if (skip==0  ){
+                    for (int g = 0; g< GateDef.size() ; g++) {
+                        string gateType = GateDef[g][0];
+                        if (gateType == "NOT") delay = convert_to_int(GateDef[g][3]);
+                    }
+                    update_values[Circut[k][2]] = {time + delay , temp};
+                    // calculate the outout of the NOT Gate
+                }
+            }
+            if (Circut[k][1] == "XOR") {
+                bool skip = 1;
+
+                for (int i = 3; i < Circut[k].size(); i++) {
+                    auto lookup = find(updated_wires.begin(), updated_wires.end(), Circut[k][i]);
+                    if (lookup != updated_wires.end()) {
+                        skip = 0;
+                        break;
+                    }
+                }
+                int delay = 0;
+                if (!skip ) {
+                    // Calculate the output of the XOR gate
+                    for (int g = 0; g< GateDef.size() ; g++) {
+                        string gateType = GateDef[g][0];
+                        if (gateType == "XOR") delay = convert_to_int(GateDef[g][3]);
+                    }
+                    int temp = 0; // Initialize temp to 0
+                    for (int i = 3; i < Circut[k].size(); i++) {
+                        temp = temp ^ wires[Circut[k][i]]; // Perform bitwise XOR operation with input wire values
+                    }
+
+                    // Schedule an update for the output wire of the XOR gate
+                    update_values[Circut[k][2]] = {time + delay, temp};
+                }
+            }
+        }
+        time++;
+        updated_wires.clear();
+
+    }
+    return 0;
+}

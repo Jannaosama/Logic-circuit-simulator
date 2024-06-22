@@ -1,0 +1,8 @@
+Inputs:
+A
+B
+C
+Components:
+G0,AND,W1,A,B
+G1,AND,W2,B,C
+G2,OR,W3,W1,W2
